@@ -15,7 +15,6 @@ public class OrderCreationTest {
 
     private final BurgerClient client = new BurgerClient();
     String accessToken;
-    String accessTokenEmpty = "";
     boolean isUserCreated = false;
 
     @Before
