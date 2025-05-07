@@ -1,4 +1,5 @@
 import client.BurgerClient;
+import com.github.javafaker.Faker;
 import io.qameta.allure.Description;
 import io.qameta.allure.junit4.DisplayName;
 import io.restassured.response.ValidatableResponse;
@@ -8,21 +9,25 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-
 public class GetOrderTest {
 
     private final BurgerClient client = new BurgerClient();
-    String accessToken;
-    boolean isUserCreated = false;
+    private final Faker faker = new Faker();
+    private String accessToken;
+    private boolean isUserCreated = false;
 
     @Before
     public void setUp() {
-        User user = new User("testikmail@mail.ru", "1212", "Testikman");
+        // Генерация случайных данных пользователя
+        String email = faker.internet().emailAddress();
+        String password = faker.internet().password(6, 12);
+        String name = faker.name().firstName();
+
+        User user = new User(email, password, name);
 
         ValidatableResponse response = client.createUser(user);
         accessToken = BurgerClient.successfulCreation(response);
-
-        isUserCreated =true;
+        isUserCreated = true;
     }
 
     @Test
@@ -33,7 +38,7 @@ public class GetOrderTest {
         client.createOrderWithAuth(accessToken, order);
 
         ValidatableResponse response = client.getOrdersWithAuth(accessToken);
-        client.verifyOrdersFetchedWithAuth(response);
+        client.successfulResponse(response);
     }
 
     @Test
@@ -50,5 +55,4 @@ public class GetOrderTest {
             client.deleteUser(accessToken);
         }
     }
-
 }

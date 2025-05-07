@@ -1,4 +1,5 @@
 import client.BurgerClient;
+import com.github.javafaker.Faker;
 import io.qameta.allure.Description;
 import io.qameta.allure.junit4.DisplayName;
 import io.restassured.response.ValidatableResponse;
@@ -14,17 +15,22 @@ import java.util.Collections;
 public class OrderCreationTest {
 
     private final BurgerClient client = new BurgerClient();
-    String accessToken;
-    boolean isUserCreated = false;
+    private final Faker faker = new Faker();
+    private String accessToken;
+    private boolean isUserCreated = false;
 
     @Before
     public void setUp() {
-        User user = new User("testikmail@mail.ru", "1212", "Testikman");
+        // Генерация случайных данных пользователя
+        String email = faker.internet().emailAddress();
+        String password = faker.internet().password(6, 12);
+        String name = faker.name().firstName();
+
+        User user = new User(email, password, name);
 
         ValidatableResponse response = client.createUser(user);
         accessToken = BurgerClient.successfulCreation(response);
-
-        isUserCreated =true;
+        isUserCreated = true;
     }
 
     @Test
@@ -33,7 +39,7 @@ public class OrderCreationTest {
     public void createOrderWithAuthAndValidIngredientsTest() {
         Order order = client.generateRandomOrder();
         ValidatableResponse response = client.createOrderWithAuth(accessToken, order);
-        client.verifySuccessfulOrderCreation(response);
+        client.successfulResponse(response);
     }
 
     @Test
@@ -42,7 +48,7 @@ public class OrderCreationTest {
     public void createOrderWithoutAuthAndWithValidIngredientsTest() {
         Order order = client.generateRandomOrder();
         ValidatableResponse response = client.createOrderWithoutAuth(order);
-        client.verifySuccessfulOrderCreation(response);
+        client.successfulResponse(response);
     }
 
     @Test
@@ -67,7 +73,7 @@ public class OrderCreationTest {
     @DisplayName("Create order with authorization and invalid ingredient IDs")
     @Description("Авторизованный пользователь отправляет заказ с невалидными ингредиентами. Ожидаем ошибку")
     public void createOrderWithAuthAndInvalidIngredientsTest() {
-        Order invalidIds = new Order (Arrays.asList("invalid1", "invalid2"));
+        Order invalidIds = new Order(Arrays.asList("invalid1", "invalid2"));
         ValidatableResponse response = client.createOrderWithAuth(accessToken, invalidIds);
         client.verifyOrderCreationWithInvalidIngredients(response);
     }
@@ -76,7 +82,7 @@ public class OrderCreationTest {
     @DisplayName("Create order without authorization and invalid ingredient IDs")
     @Description("Неавторизованный пользователь отправляет заказ с невалидными ингредиентами. Ожидаем ошибку")
     public void createOrderWithoutAuthAndInvalidIngredientsTest() {
-        Order invalidIds = new Order (Arrays.asList("invalid1", "invalid2"));
+        Order invalidIds = new Order(Arrays.asList("invalid1", "invalid2"));
         ValidatableResponse response = client.createOrderWithoutAuth(invalidIds);
         client.verifyOrderCreationWithInvalidIngredients(response);
     }

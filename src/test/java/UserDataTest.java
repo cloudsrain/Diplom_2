@@ -1,4 +1,5 @@
 import client.BurgerClient;
+import com.github.javafaker.Faker;
 import io.qameta.allure.Description;
 import io.qameta.allure.junit4.DisplayName;
 import io.restassured.response.ValidatableResponse;
@@ -12,26 +13,31 @@ public class UserDataTest {
 
     private User user;
     private final BurgerClient client = new BurgerClient();
-    String accessToken;
-    boolean isUserCreated = false;
+    private final Faker faker = new Faker();
+    private String accessToken;
+    private boolean isUserCreated = false;
 
     @Before
-    public void createUser(){
-        user = new User("testikmail@mail.ru", "1212", "Testikman");
+    public void createUser() {
+        // Генерация случайных данных пользователя с помощью Faker
+        String email = faker.internet().emailAddress();
+        String password = faker.internet().password(6, 12);
+        String name = faker.name().firstName();
+
+        user = new User(email, password, name);
 
         ValidatableResponse response = client.createUser(user);
         accessToken = BurgerClient.successfulCreation(response);
-
-        isUserCreated =true;
+        isUserCreated = true;
     }
 
     @Test
     @DisplayName("Update user name with authorization")
     @Description("Пользователь с accessToken успешно изменил имя, сервер вернул код 200 и обновлённое имя")
-    public void runUpdateUserNameTest(){
+    public void runUpdateUserNameTest() {
         String fieldName = "name";
         String newName = "Fluttershy";
-        User updatedUser = new User(user.getEmail(), user.getPassword(),newName);
+        User updatedUser = new User(user.getEmail(), user.getPassword(), newName);
 
         ValidatableResponse response = client.updateUser(accessToken, updatedUser);
         client.verifyFieldUpdated(response, fieldName, newName);
@@ -40,7 +46,7 @@ public class UserDataTest {
     @Test
     @DisplayName("Update user email with authorization")
     @Description("Пользователь с accessToken успешно изменил email, сервер вернул код 200 и обновлённый email")
-    public void runUpdateUserEmailTest(){
+    public void runUpdateUserEmailTest() {
         String fieldName = "email";
         String newEmail = "FluttershyBestPony@mail.eq";
         User updatedUser = new User(newEmail, user.getPassword(), user.getName());
@@ -52,7 +58,7 @@ public class UserDataTest {
     @Test
     @DisplayName("Update user password with authorization")
     @Description("Пользователь с accessToken успешно изменил пароль, сервер вернул код 200")
-    public void runUpdateUserPasswordTest(){
+    public void runUpdateUserPasswordTest() {
         String newPassword = "2121";
         User updatedUser = new User(user.getEmail(), newPassword, user.getName());
 
@@ -62,15 +68,15 @@ public class UserDataTest {
         UserLogin credentials = new UserLogin(user.getEmail(), newPassword);
 
         ValidatableResponse responseB = client.loginUser(credentials);
-        client.successfulLogin(responseB);
+        client.successfulResponse(responseB);
     }
 
     @Test
     @DisplayName("Try to update user name without authorization")
     @Description("Неавторизованный пользователь не смог изменить имя, сервер вернул код 401")
-    public void runUpdateUserNameWithoutAuthTest(){
+    public void runUpdateUserNameWithoutAuthTest() {
         String newName = "Fluttershy";
-        User updatedUser = new User(user.getEmail(), user.getPassword(),newName);
+        User updatedUser = new User(user.getEmail(), user.getPassword(), newName);
 
         ValidatableResponse response = client.updateUserWithoutAuth(updatedUser);
         client.verifyUnauthorizedFieldUpdate(response);
@@ -79,7 +85,7 @@ public class UserDataTest {
     @Test
     @DisplayName("Try to update user email without authorization")
     @Description("Неавторизованный пользователь не смог изменить email, сервер вернул код 401")
-    public void runUpdateUserEmailWithoutAuthTest(){
+    public void runUpdateUserEmailWithoutAuthTest() {
         String newEmail = "FluttershyBestPony@mail.eq";
         User updatedUser = new User(newEmail, user.getPassword(), user.getName());
 
@@ -90,7 +96,7 @@ public class UserDataTest {
     @Test
     @DisplayName("Try to update user password without authorization")
     @Description("Неавторизованный пользователь не смог изменить пароль, сервер вернул код 401")
-    public void runUpdateUserPasswordWithoutAuthTest(){
+    public void runUpdateUserPasswordWithoutAuthTest() {
         String newPassword = "2121";
         User updatedUser = new User(newPassword, user.getPassword(), user.getName());
 
@@ -98,12 +104,10 @@ public class UserDataTest {
         client.verifyUnauthorizedFieldUpdate(response);
     }
 
-
     @After
-    public void deleteUser(){
+    public void deleteUser() {
         if (isUserCreated) {
             client.deleteUser(accessToken);
         }
     }
-
 }

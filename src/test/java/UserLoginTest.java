@@ -1,4 +1,5 @@
 import client.BurgerClient;
+import com.github.javafaker.Faker;
 import io.qameta.allure.Description;
 import io.qameta.allure.junit4.DisplayName;
 import io.restassured.response.ValidatableResponse;
@@ -15,32 +16,38 @@ public class UserLoginTest {
     private User user;
     private UserLogin credentials;
     private final BurgerClient client = new BurgerClient();
-    String accessToken;
-    boolean isUserCreated = false;
+    private final Faker faker = new Faker();
+    private String accessToken;
+    private boolean isUserCreated = false;
 
     @Before
-    public void createUser(){
-        user = new User("testikmail@mail.ru", "1212", "Testikman");
+    public void createUser() {
+        // Генерация случайных данных пользователя с помощью Faker
+        String email = faker.internet().emailAddress();
+        String password = faker.internet().password(6, 12);
+        String name = faker.name().firstName();
+
+        user = new User(email, password, name);
         credentials = UserLogin.fromUser(user);
 
         ValidatableResponse response = client.createUser(user);
         accessToken = BurgerClient.successfulCreation(response);
 
-        isUserCreated =true;
+        isUserCreated = true;
     }
 
     @Test
     @DisplayName("Successful user login")
     @Description("Пользователь успешно залогинился, сервер вернул код 200")
-    public void runUserLoginTest(){
+    public void runUserLoginTest() {
         ValidatableResponse response = client.loginUser(credentials);
-        client.successfulLogin(response);
+        client.successfulResponse(response);
     }
 
     @Test
-    @DisplayName("user login with invalid password")
+    @DisplayName("User login with invalid password")
     @Description("Пользователь не залогинился, сервер вернул код 401")
-    public void runLoginWithoutPasswordTest(){
+    public void runLoginWithoutPasswordTest() {
         String brokenPassword = user.getPassword() + UUID.randomUUID();
         UserLogin brokenCredentials = new UserLogin(user.getEmail(), brokenPassword);
 
@@ -49,9 +56,9 @@ public class UserLoginTest {
     }
 
     @Test
-    @DisplayName("user login with invalid email")
+    @DisplayName("User login with invalid email")
     @Description("Пользователь не залогинился, сервер вернул код 401")
-    public void runLoginWithoutEmailTest(){
+    public void runLoginWithoutEmailTest() {
         String brokenEmail = user.getEmail() + UUID.randomUUID();
         UserLogin brokenCredentials = new UserLogin(brokenEmail, user.getPassword());
 
@@ -60,7 +67,7 @@ public class UserLoginTest {
     }
 
     @After
-    public void deleteUser(){
+    public void deleteUser() {
         if (isUserCreated) {
             client.deleteUser(accessToken);
         }
