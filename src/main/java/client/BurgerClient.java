@@ -11,6 +11,7 @@ import java.util.*;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
+import static org.apache.http.HttpStatus.*;
 
 public class BurgerClient {
 
@@ -128,43 +129,29 @@ public class BurgerClient {
                 .log().all();
     }
 
-    @Step("Формируем заказ из случайной булки, начинки и соуса")
+    @Step("Формируем заказ из случайных ингредиентов")
     public Order generateRandomOrder() {
         ValidatableResponse response = given()
                 .baseUri(BASE_URL)
                 .when()
                 .get(GET_INGREDIENTS_PATH)
                 .then()
-                .statusCode(200)
+                .statusCode(SC_OK)
                 .body("success", equalTo(true));
 
         List<Map<String, Object>> ingredients = response.extract().path("data");
 
-        List<String> buns = new ArrayList<>();
-        List<String> mains = new ArrayList<>();
-        List<String> sauces = new ArrayList<>();
-
+        List<String> ids = new ArrayList<>();
         for (Map<String, Object> ingredient : ingredients) {
-            String type = (String) ingredient.get("type");
-            String id = (String) ingredient.get("_id");
-
-            switch (type) {
-                case "bun": buns.add(id); break;
-                case "main": mains.add(id); break;
-                case "sauce": sauces.add(id); break;
-            }
+            ids.add((String) ingredient.get("_id"));
         }
 
-        if (buns.isEmpty() || mains.isEmpty() || sauces.isEmpty()) {
-            throw new IllegalStateException("Не удалось собрать бургер: не хватает ингредиентов");
+        if (ids.size() < 3) {
+            throw new IllegalStateException("Недостаточно ингредиентов для формирования заказа");
         }
 
-        Random random = new Random();
-        String bun = buns.get(random.nextInt(buns.size()));
-        String main = mains.get(random.nextInt(mains.size()));
-        String sauce = sauces.get(random.nextInt(sauces.size()));
-
-        return new Order(Arrays.asList(bun, main, sauce));
+        Collections.shuffle(ids);
+        return new Order(ids.subList(0, 3));
     }
 
     @Step("Удаление пользователя")
@@ -181,7 +168,7 @@ public class BurgerClient {
 
     @Step("Успешное создание пользователя")
     public static String successfulCreation(ValidatableResponse response) {
-        response.assertThat().statusCode(200)
+        response.assertThat().statusCode(SC_OK)
                 .body("success", equalTo(true));
 
         return response.extract()
@@ -191,29 +178,15 @@ public class BurgerClient {
     }
 
     @Step("Успешный логин")
-    public void successfulLogin(ValidatableResponse response){
-        response.assertThat().statusCode(200)
+    public void successfulResponse(ValidatableResponse response){
+        response.assertThat().statusCode(SC_OK)
                 .body("success", equalTo(true));
     }
-
-    @Step("Заказ оформлен успешно")
-    public void verifySuccessfulOrderCreation(ValidatableResponse response){
-        response.assertThat().statusCode(200)
-                .body("success", equalTo(true));
-    }
-
-    @Step("Успешное получение заказов пользователя")
-    public void verifyOrdersFetchedWithAuth(ValidatableResponse response){
-        response.assertThat().statusCode(200)
-                .body("success", equalTo(true));
-    }
-
-
 
     @Step("Проверка, что поле '{field}' успешно изменено на значение '{expectedValue}'")
     public void verifyFieldUpdated(ValidatableResponse response, String field, String expectedValue) {
         response.assertThat()
-                .statusCode(200)
+                .statusCode(SC_OK)
                 .body("success", equalTo(true))
                 .body("user." + field, equalTo(expectedValue));
     }
@@ -221,45 +194,47 @@ public class BurgerClient {
     @Step("Проверка, что пароль поменялся")
     public void verifyPasswordUpdated(ValidatableResponse response) {
         response.assertThat()
-                .statusCode(200)
+                .statusCode(SC_OK)
                 .body("success", equalTo(true));
     }
 
     @Step("Создание существующего пользователя")
     public void alreadyCreatedUser(ValidatableResponse response) {
-        response.assertThat().statusCode(403)
+        response.assertThat().statusCode(SC_FORBIDDEN)
                 .body("success", equalTo(false))
                 .body("message", equalTo("User already exists"));
     }
 
     @Step("Создание пользователя без одного поля")
     public void userCreationWithoutField(ValidatableResponse response) {
-        response.assertThat().statusCode(403)
+        response.assertThat().statusCode(SC_FORBIDDEN)
                 .body("success", equalTo(false))
                 .body("message", equalTo("Email, password and name are required fields"));
     }
 
     @Step("Неуспешный логин")
     public void invalidLogin(ValidatableResponse response){
-        response.assertThat().statusCode(401)
-                .body("success", equalTo(false));
+        response.assertThat().statusCode(SC_UNAUTHORIZED)
+                .body("success", equalTo(false))
+                .body("message", equalTo("email or password are incorrect"));
     }
 
     @Step("Заказ не формляется без ингредиентов")
     public void verifyOrderCreationWithoutIngredients(ValidatableResponse response){
-        response.assertThat().statusCode(400)
-                .body("success", equalTo(false));
+        response.assertThat().statusCode(SC_BAD_REQUEST)
+                .body("success", equalTo(false))
+                .body("message", equalTo("Ingredient ids must be provided"));
     }
 
     @Step("Заказ не оформляется с неправильными ингредиентами")
     public void verifyOrderCreationWithInvalidIngredients(ValidatableResponse response){
-        response.assertThat().statusCode(500);
+        response.assertThat().statusCode(SC_INTERNAL_SERVER_ERROR);
     }
 
     @Step("Неавторизованный пользователь не может получить заказы")
     public void verifyOrdersNotFetchedWithoutAuth(ValidatableResponse response) {
         response.assertThat()
-                .statusCode(401)
+                .statusCode(SC_UNAUTHORIZED)
                 .body("success", equalTo(false))
                 .body("message", equalTo("You should be authorised"));
     }
@@ -267,7 +242,8 @@ public class BurgerClient {
     @Step("Проверка, что поле не изменилось (без авторизации)")
     public void verifyUnauthorizedFieldUpdate(ValidatableResponse response) {
         response.assertThat()
-                .statusCode(401)
-                .body("success", equalTo(false));
+                .statusCode(SC_UNAUTHORIZED)
+                .body("success", equalTo(false))
+                .body("message", equalTo("You should be authorised"));
     }
 }
